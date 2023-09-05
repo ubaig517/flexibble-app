@@ -2,8 +2,12 @@ import { ProjectForm } from "@/common.types";
 import {
   allProjectsQuery,
   createUserMutation,
+  deleteProjectMutation,
+  getProjectByIdQuery,
+  getProjectsOfUserQuery,
   getUserQuery,
   projectsQuery,
+  updateProjectMutation,
 } from "@/graphql";
 import { GraphQLClient } from "graphql-request";
 
@@ -111,4 +115,56 @@ export const fetchAllProjects = (category?: string, endcursor?: string) => {
   }
 
   return makeGraphQLRequest(projectsQuery, { category, endcursor });
+};
+
+export const getProjectDetails = (id: string) => {
+  client.setHeader("x-api-key", apiKey);
+
+  return makeGraphQLRequest(getProjectByIdQuery, { id });
+};
+
+export const getUserProjects = (id: string, last?: number) => {
+  client.setHeader("x-api-key", apiKey);
+
+  return makeGraphQLRequest(getProjectsOfUserQuery, { id, last });
+};
+
+export const deleteProject = (id: string, token: string) => {
+  client.setHeader("Authorization", `Bearer ${token}`);
+
+  return makeGraphQLRequest(deleteProjectMutation, { id });
+};
+
+export const updateProject = async (
+  form: ProjectForm,
+  projectId: string,
+  token: string
+) => {
+  function isBase64DataURL(str: string) {
+    const base64Regex = /^data:image\/[a-z]+;base64,/;
+    return base64Regex.test(str);
+  }
+
+  let updatedForm = { ...form };
+
+  const isUploadingNewImage = isBase64DataURL(form.image);
+  if (isUploadingNewImage) {
+    const imageUrl = await uploadImage(form.image);
+
+    if (imageUrl.url) {
+      updatedForm = {
+        ...form,
+        image: imageUrl.url,
+      };
+    }
+  }
+
+  const variables = {
+    id: projectId,
+    input: updatedForm,
+  };
+
+  client.setHeader("Authorization", `Bearer ${token}`);
+
+  return makeGraphQLRequest(updateProjectMutation, variables);
 };
